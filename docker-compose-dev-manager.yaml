@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+
+  backend:
+    build:
+      context: server
+    restart: unless-stopped
+    networks:
+      - local
+    ports:
+      - 6969:6969
+    volumes:
+      - type: bind
+        source: ./server
+        target: /server
+
+networks:
+  local:

@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+
+  meilisearch:
+    image: getmeili/meilisearch
+    extra_hosts:
+      - docker-desktop
+    restart: unless-stopped
+    networks:
+      - local
+    deploy:
+      replicas: 1
+      labels:
+        feature.description: "Meilisearch"
+      restart_policy:
+        condition: any
+      placement:
+        constraints: [node.role == worker]
+    ports:
+      - 7700:7700
+    volumes:
+      - meilisearch:/meili_data
+      
+  backend:
+    build:
+      context: server
+    restart: unless-stopped
+    networks:
+      - local
+    ports:
+      - 6969:6969
+    volumes:
+      - type: bind
+        source: ./server
+        target: /server
+
+  # ngrok: 
+  #   image: ngrok/ngrok:latest
+  #   restart: unless-stopped
+  #   command:
+  #     - "start"
+  #     - "--all"
+  #     - "--config"
+  #     - "/etc/ngrok.yml"
+  #   volumes:
+  #     - ./ngrok.yml:/etc/ngrok.yml
+  #   ports:
+  #     - 4040:4040
+
+volumes:
+  meilisearch:
+    driver: local
+
+
+networks:
+  local:
