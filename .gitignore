@@ -1,2 +1,5 @@
 venv
 target
+.env
+arxiv-metadata-oai-snapshot.json
+__pycache__

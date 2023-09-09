@@ -1,21 +1,21 @@
-const meilisearch_url = "http://192.168.0.110:7700"
+const api_url = "http://192.168.0.105:8081"
 
 const papers_available = document.getElementById("papers-available");
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 async function get_number_of_documents() {
-    const res = await fetch(new String(meilisearch_url + '/indexes/papers/stats'), {
+    const res = await fetch(new String(api_url + '/doc_count'), {
         // headers: new Headers({
         //     "ngrok-skip-browser-warning": "69420",
         //   })
     });
     const json = await res.json();
     return json["numberOfDocuments"];
-  }
+}
 async function get_papers_available() {
     number_of_documents = await get_number_of_documents();
-    papers_available.innerText = new String("Papers available: " +  numberWithCommas(number_of_documents));
+    papers_available.innerText = new String("Papers available: " + numberWithCommas(number_of_documents));
 }
 addEventListener("load", get_papers_available);
 
@@ -27,12 +27,12 @@ const pagination = document.getElementById("pagination");
 const current_page = document.getElementById("current-page");
 
 async function render_papers(papers) {
-    console.log(papers);    
+    console.log(papers);
     if (papers.estimatedTotalHits) {
         estimated_count.dataset.estimated_count = papers.estimatedTotalHits;
-        if (papers.estimatedTotalHits == 1000) 
+        if (papers.estimatedTotalHits == 1000)
             estimated_count.innerText = new String("Estimated count: >1000");
-        else 
+        else
             estimated_count.innerText = new String("Count (total): " + papers.estimatedTotalHits);
         estimated_count.classList.remove("hidden");
         pagination.classList.remove("hidden");
@@ -60,7 +60,7 @@ async function render_papers(papers) {
         let abstract = document.createElement("p");
         abstract.classList.add("abstract");
         abstract.classList.add("overflow");
-        abstract.addEventListener("click", (e) => {e.target.classList.remove("overflow")});
+        abstract.addEventListener("click", (e) => { e.target.classList.remove("overflow") });
         abstract.innerText = element.abstract;
         child.appendChild(abstract);
         papers_list.appendChild(child);
@@ -68,24 +68,17 @@ async function render_papers(papers) {
     console.log(papers_list);
 }
 
-async function perform_search(e, page=1) {
+async function perform_search(e, page = 1) {
     current_page.dataset.current_page = page;
     current_page.innerText = new String("Page: " + page);
     console.log(e);
-    var offset = (page-1) * 20;
+    var offset = (page - 1) * 20;
     if ("target" in e)
         var q = e.target.value;
     else
         var q = e.value;
     const start = Date.now();
-    const response = await fetch(new String(meilisearch_url + "/indexes/papers/search"), {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            // "ngrok-skip-browser-warning": "69420",
-        },
-        body: JSON.stringify({"q": q, "offset": offset}),
-    });
+    const response = await fetch(new String(api_url + "/search?" + JSON.stringify({ "query": q, "offset": offset })));
     const papers = await response.json();
     const end = Date.now();
     execution_time.dataset.execution_time = end - start;
@@ -122,4 +115,4 @@ async function get_prev_page() {
         next_page_btn.classList.remove("hidden");
     }
 }
-prev_page_btn.addEventListener("click",  get_prev_page)
+prev_page_btn.addEventListener("click", get_prev_page)
