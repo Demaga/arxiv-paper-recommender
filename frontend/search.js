@@ -1,4 +1,4 @@
-const api_url = "http://192.168.0.105:8081"
+const api_url = "http://192.168.0.105:8000"
 
 const papers_available = document.getElementById("papers-available");
 function numberWithCommas(x) {
@@ -11,7 +11,7 @@ async function get_number_of_documents() {
         //   })
     });
     const json = await res.json();
-    return json["numberOfDocuments"];
+    return json;
 }
 async function get_papers_available() {
     number_of_documents = await get_number_of_documents();
@@ -28,12 +28,12 @@ const current_page = document.getElementById("current-page");
 
 async function render_papers(papers) {
     console.log(papers);
-    if (papers.estimatedTotalHits) {
-        estimated_count.dataset.estimated_count = papers.estimatedTotalHits;
-        if (papers.estimatedTotalHits == 1000)
+    if (papers.hits.total.value) {
+        estimated_count.dataset.estimated_count = papers.hits.total.value;
+        if (papers.hits.total.value == 1000)
             estimated_count.innerText = new String("Estimated count: >1000");
         else
-            estimated_count.innerText = new String("Count (total): " + papers.estimatedTotalHits);
+            estimated_count.innerText = new String("Count (total): " + papers.hits.total.value);
         estimated_count.classList.remove("hidden");
         pagination.classList.remove("hidden");
     } else {
@@ -44,7 +44,9 @@ async function render_papers(papers) {
         papers_list.removeChild(papers_list.firstChild);
     }
 
-    papers.hits.forEach(element => {
+    console.log(papers);
+    papers.hits.hits.forEach(element => {
+        element = element._source;
         let child = document.createElement("li");
         child.classList.add("paper");
         let link = document.createElement("a");
@@ -78,13 +80,15 @@ async function perform_search(e, page = 1) {
     else
         var q = e.value;
     const start = Date.now();
-    const response = await fetch(new String(api_url + "/search?" + JSON.stringify({ "query": q, "offset": offset })));
+    const qp = new URLSearchParams({ "query": q, "offset": offset });
+    const response = await fetch(new String(api_url + "/search?" + qp.toString()));
     const papers = await response.json();
+    console.log(papers);
     const end = Date.now();
     execution_time.dataset.execution_time = end - start;
     execution_time.innerText = new String("Execution time (for single page): " + execution_time.dataset.execution_time + " ms");
     execution_time.classList.remove("hidden");
-    if (papers.estimatedTotalHits > 20)
+    if (papers.hits.total.value > 20)
         next_page_btn.classList.remove("hidden");
     else
         next_page_btn.classList.add("hidden");
