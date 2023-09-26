@@ -3,3 +3,4 @@ target
 .env
 arxiv-metadata-oai-snapshot.json
 __pycache__
+*.log

@@ -1,9 +1,14 @@
+import logging
 import os
 import time
+from typing import Generator
 
 import requests
-from elasticsearch import Elasticsearch
+import xmltodict
+from elasticsearch import Elasticsearch, helpers
 from lxml import etree
+
+logging.basicConfig(level=logging.INFO, filename="weekly.log")
 
 
 def get_last_record_date() -> str:
@@ -17,66 +22,109 @@ def get_last_record_date() -> str:
     return res["hits"]["hits"][0]["_source"]["update_date"]
 
 
-def get_records(start_date: str) -> list[etree._Element]:
-    records = []
+def get_records(start_date: str) -> Generator[etree._Element, None, None]:
     url = "http://export.arxiv.org/oai2"
-    with requests.session as s:
+    with requests.session() as s:
+        resumption_token = None
         while True:
-            s = requests.get(url, params={"verb": "ListRecords", "metadataPrefix": "oai_dc", "from": start_date})
+            if resumption_token is None:
+                params = {
+                    "verb": "ListRecords",
+                    "metadataPrefix": "oai_dc",
+                    "from": start_date,
+                }
+            else:
+                params = {
+                    "verb": "ListRecords",
+                    "resumptionToken": resumption_token.text,
+                }
+            s = requests.get(
+                url,
+                params=params,
+            )
             if s.status_code != 200:
                 raise Exception(f"Request failed with status code {s.status_code}")
             tree = etree.fromstring(s.content)
-            records_batch = tree.find(".//ListRecords", namespaces={None: "http://www.openarchives.org/OAI/2.0/"})
-            records.extend(records_batch)
-            resumption_token = tree.find(".//resumptionToken", namespaces={None: "http://www.openarchives.org/OAI/2.0/"})
-            if resumption_token is None:
+            with open("test.xml", "w") as f:
+                f.write(s.text)
+            records_batch = tree.findall(
+                ".//ListRecords/record",
+                namespaces={None: "http://www.openarchives.org/OAI/2.0/"},
+            )
+            for record in records_batch:
+                yield record
+            resumption_token = tree.find(
+                ".//resumptionToken",
+                namespaces={None: "http://www.openarchives.org/OAI/2.0/"},
+            )
+            if resumption_token is None or resumption_token.text is None:
                 break
-            
+            print(resumption_token, resumption_token.text)
+            time.sleep(10)
 
-    return records
+
+def transform_record(record: etree.Element) -> dict:
+    record = xmltodict.parse(etree.tostring(record))["record"]
+
+    identifier = record["header"]["identifier"].split(":")[-1]
+    metadata = record["metadata"]["oai_dc:dc"]
+    authors = metadata["dc:creator"]
+    if type(authors) == str:
+        authors = [authors]
+    for j, author in enumerate(authors):
+        author = author.split(",")
+        author = " ".join(author[1:]) + " " + author[0]
+        author = author.strip()
+        authors[j] = author
+    authors = ", ".join(authors)
+    out = {
+        "id": identifier,
+        "authors": authors,
+        "title": metadata["dc:title"],
+        "abstract": metadata["dc:description"][0].strip().replace("\n", " "),
+        "update_date": record["header"]["datestamp"],
+    }
+
+    return out
 
 
-def transform_records(records: Sickle.ListRecords) -> list[dict]:
-    out_records = []
-
-    BATCH_SIZE = 20
-    for i, record in enumerate(records):
-        record = dict(record)
-        identifier = record["identifier"][0].split("/")[-1].replace(".", "-")
-        authors = record["creator"]
-        for j, author in enumerate(authors):
-            author = author.split(",")
-            author = " ".join(author[1:]) + " " + author[0]
-            author = author.strip()
-            authors[j] = author
-        authors = ", ".join(authors)
-        out = {
-            "id": identifier,
-            "authors": authors,
-            "title": record["title"][0],
-            "abstract": record["description"][0].strip().replace("\n", " ")
+def upload_records(records: list[dict]):
+    es = Elasticsearch(hosts=[os.environ["ELASTICSEARCH_HOST"]])
+    actions = [
+        {
+            "_index": f"arxiv",
+            "_id": record["id"],
+            "_source": record,
         }
-        out_records.append(out)
+        for record in records
+    ]
 
-        if i >= BATCH_SIZE and i % BATCH_SIZE == 0:
-            print(f"Batch {i // BATCH_SIZE} done")
-            time.sleep(5) # lazy load, don't overload the server
-        if i == 200:
-            break
+    i = 0
+    for success, info in helpers.parallel_bulk(es, actions):
+        i += 1
+        if i % 1000 == 0:
+            print(f"Inserted {i} documents")
+        if not success:
+            print("A document failed:", info)
 
-    return out_records
 
 def main():
     date = get_last_record_date()
     print(date)
 
-    records = get_records(date)
-    print(records)
+    to_upload = []
+    i = 0
+    for record in get_records(start_date=date):
+        i += 1
+        if i % 1000 == 0:
+            upload_records(to_upload)
+            to_upload = []
+            print(f"Processed {i} records")
 
-    transformed_records = transform_records(records)
-    print(transformed_records)
-
-
+        transformed_record = transform_record(record)
+        to_upload.append(transformed_record)
+    if len(to_upload) > 0:
+        upload_records(to_upload)
 
 
 if __name__ == "__main__":
