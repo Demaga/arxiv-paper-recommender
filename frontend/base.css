@@ -5,7 +5,6 @@
 
 #search {
     width: 100%;
-    border: 1px solid black;
     border-radius: 5px;
     height: 30px;
     font-size: large;
@@ -20,7 +19,6 @@
 .paper {
     margin-bottom: 10px;
     padding-bottom: 5px;
-    border-bottom: 1px solid black;
 }
 
 .paper * {
@@ -31,6 +29,10 @@
 
 .paper a {
     font-weight: bold;
+}
+
+.paper hr {
+    margin-top: 10px;
 }
 
 .overflow {

@@ -65,6 +65,7 @@ async function render_papers(papers) {
         abstract.addEventListener("click", (e) => { e.target.classList.remove("overflow") });
         abstract.innerText = element.abstract;
         child.appendChild(abstract);
+        child.appendChild(document.createElement("hr"));
         papers_list.appendChild(child);
     });
     console.log(papers_list);
