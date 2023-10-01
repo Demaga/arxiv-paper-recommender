@@ -45,8 +45,6 @@ def get_records(start_date: str) -> Generator[etree._Element, None, None]:
             if s.status_code != 200:
                 raise Exception(f"Request failed with status code {s.status_code}")
             tree = etree.fromstring(s.content)
-            with open("test.xml", "w") as f:
-                f.write(s.text)
             records_batch = tree.findall(
                 ".//ListRecords/record",
                 namespaces={None: "http://www.openarchives.org/OAI/2.0/"},
@@ -59,7 +57,7 @@ def get_records(start_date: str) -> Generator[etree._Element, None, None]:
             )
             if resumption_token is None or resumption_token.text is None:
                 break
-            print(resumption_token, resumption_token.text)
+            logging.info(f"Resumption token received: {resumption_token.text}")
             time.sleep(10)
 
 
@@ -103,14 +101,14 @@ def upload_records(records: list[dict]):
     for success, info in helpers.parallel_bulk(es, actions):
         i += 1
         if i % 1000 == 0:
-            print(f"Inserted {i} documents")
+            logging.info(f"Inserted {i} documents")
         if not success:
-            print("A document failed:", info)
+            logging.info("A document failed:", info)
 
 
 def main():
     date = get_last_record_date()
-    print(date)
+    logging.info(date)
 
     to_upload = []
     i = 0
@@ -119,7 +117,7 @@ def main():
         if i % 1000 == 0:
             upload_records(to_upload)
             to_upload = []
-            print(f"Processed {i} records")
+            logging.info(f"Processed {i} records")
 
         transformed_record = transform_record(record)
         to_upload.append(transformed_record)
