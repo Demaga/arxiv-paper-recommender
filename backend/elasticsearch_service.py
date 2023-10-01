@@ -11,7 +11,16 @@ class ElasticsearchService:
 
     def search(self, query, offset=0, limit=20):
         return self.client.search(
-            index="arxiv", query={"multi_match": {"query": query, "fields": ["title", "authors", "abstract"]}}, from_=offset, size=limit
+            index="arxiv",
+            query={
+                "multi_match": {
+                    "query": query,
+                    "type": "bool_prefix",
+                    "fields": ["title", "authors", "abstract"],
+                }
+            },
+            from_=offset,
+            size=limit,
         )
 
     def doc_count(self):
