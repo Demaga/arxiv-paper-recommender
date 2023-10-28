@@ -1,0 +1,3 @@
+Generic single-database configuration.
+
+To upgrade db schema, run `alembic revision -m "commit msg" --autogenerate` from project folder.

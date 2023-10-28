@@ -14,7 +14,8 @@ def jsonl_generator():
                 "_index": f"arxiv",
                 "_id": doc["id"],
                 "_source": {
-                    key: doc[key] for key in ["id", "title", "abstract", "authors", "update_date"]
+                    key: doc[key]
+                    for key in ["id", "title", "abstract", "authors", "update_date"]
                 },
             }
             yield action
